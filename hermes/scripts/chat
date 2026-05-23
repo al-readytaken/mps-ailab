@@ -1,0 +1,3 @@
+#!/bin/bash
+# Launch Hermes CLI from the projects directory
+cd /opt/projects && exec /opt/hermes/.venv/bin/hermes "$@"

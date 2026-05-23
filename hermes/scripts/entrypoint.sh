@@ -13,6 +13,33 @@ if [ "${HERMES_DASHBOARD:-0}" = "1" ]; then
     --port "${HERMES_DASHBOARD_PORT:-9119}" --insecure &
 fi
 
+# Fix permissions on shared projects volume
+mkdir -p /opt/projects
+chmod a+rwX /opt/projects
+
+# SSH pubkey setup — env var OR baked-in file
+if [ -n "${HERMES_SSH_PUBKEY}" ] || [ -f /etc/hermes/ssh.pub ]; then
+  KEY="${HERMES_SSH_PUBKEY:-$(cat /etc/hermes/ssh.pub)}"
+
+  # Authorize for hermes user (home = /opt/data)
+  mkdir -p /opt/data/.ssh
+  echo "$KEY" > /opt/data/.ssh/authorized_keys
+  chmod 700 /opt/data/.ssh
+  chmod 600 /opt/data/.ssh/authorized_keys
+  chown -R hermes:hermes /opt/data/.ssh
+
+  # Also for root
+  mkdir -p /root/.ssh
+  echo "$KEY" > /root/.ssh/authorized_keys
+  chmod 700 /root/.ssh
+  chmod 600 /root/.ssh/authorized_keys
+fi
+
+# Start SSH server
+if [ -f /usr/sbin/sshd ]; then
+  /usr/sbin/sshd
+fi
+
 # Ensure hermes user can write to the data volume
 if [ "$(id -u)" = "0" ]; then
   HERMES_UID=${HERMES_UID:-10000}

@@ -1,364 +1,376 @@
-# Hermes Docker Stack
+# Hermes Docker Stack — Architecture Documentation
 
-Hermes Agent behind Nginx, with room for more backends (kokoro TTS, ollama LLM, etc.).
+> **Cross-project info (ports, volumes, networks, provider chain) is duplicated in AGENTS.md and sub-READMEs — keep in sync.**
 
-## Repository layout
+## Overview
+
+This project deploys **Hermes AI Agent** alongside **Kokoro TTS**, **Ollama LLM**, **LM Studio**, and **Opencode CLI** via Docker Compose. Each service is accessible directly via its native HTTP port — no reverse proxy, no path rewriting.
+
+Each component has its own README with detailed configuration, usage, and examples — see the [Repository Structure](#repository-structure) below.
 
 ```
-├── docker-compose.yml        # orchestrates all services
-├── .gitignore
-├── AGENTS.md
-├── hermes/
-│   ├── .env                  # secrets and dashboard flags (gitignored)
-│   ├── Dockerfile            # extends upstream image, bakes TTS deps
-│   ├── entrypoint.sh         # bootstraps data, launches dashboard, drops privs
-│   └── scripts/
-│       └── setup-hermes.sh   # one-time setup: certs, build, provider config
-├── kokoro/
-│   ├── Dockerfile            # extends upstream image, fixes volume ownership
-│   └── entrypoint.sh         # chowns volume, drops to appuser via setpriv
-├── ollama/
-│   ├── Dockerfile            # extends upstream image (prep for future tweaks)
-│   ├── entrypoint.sh         # starts server, watches models file for changes
-│   └── ollama-models.txt     # one model per line, uncomment to auto-pull
-├── nginx/
-│   ├── dashboard.conf        # reverse proxy rules (TLS termination)
-│   └── certs/                # TLS certs (gitignored *.pem)
+                    ┌─────────────┐
+                    │   Browser   │
+                    └──────┬──────┘
+                           │ HTTP
+              ┌────────────┼────────────┬───────────┐
+              │            │            │           │
+    ┌─────────▼────────┐ ┌─▼─────┐ ┌───▼────────┐ ┌─▼──────────┐
+    │  Hermes Agent    │ │ Ollama│ │   Kokoro   │ │ LM Studio  │
+    │ :8642 + SSH :2222│ │:11434 │ │  TTS :8880 │ │ :1234      │
+    └─────────┬────────┘ └───────┘ └────────────┘ └────────────┘
+              │
+         hermes_data
+        (persistent)
+          projects
+        (shared vol.)
+              │
+    ┌─────────▼────────┐
+    │   Opencode CLI   │
+    │   SSH port 9999  │
+    └──────────────────┘
+          projects
+        (shared vol.)
 ```
 
-## Docker Compose architecture
+---
 
-Four services across two networks:
+## Services
 
-- **hermes** (build: `./hermes`): gateway + dashboard. Exposes `8642` only. Dashboard listens on `0.0.0.0:9119` for Nginx.
-- **ollama** (build: `./ollama`): LLM server on `11434`. **No GPU reservation** — runs CPU-only for broad compatibility.
-- **kokoro** (build: `./kokoro`, based on `ghcr.io/remsky/kokoro-fastapi-cpu:latest`): TTS engine on `8880`.
-- **nginx** (`nginx:stable-alpine`): single HTTPS entry point on `443`. Proxies to all backends.
+| Component | README | Container | Host Ports | Key Details |
+|-----------|--------|-----------|------------|-------------|
+| Hermes Agent | [`hermes/README.md`](./hermes/README.md) | `hermes` | `8642`, `9119`, `2222` | AI gateway + dashboard + SSH, memory 4G/2CPU |
+| Ollama | [`ollama/README.md`](./ollama/README.md) | `ollama` | `11434` | Local LLM (CPU/ROCm), auto-pulls models |
+| Kokoro TTS | [`kokoro/README.md`](./kokoro/README.md) | `kokoro` | `8880` | Text-to-speech engine, 67 built-in voices |
+| Opencode CLI | [`opencode/README.md`](./opencode/README.md) | `opencode` | `9999` | Code assistant CLI (SSH-only) |
+| LM Studio | [`lmstudio/README.md`](./lmstudio/README.md) | `lmstudio` | `1234` | Local LLM (Vulkan), headless llmster daemon |
 
-Backends are routed through Nginx for TLS/path-based access, and in the current compose file they are also exposed on localhost via host ports (`8642`, `11434`, `8880`) for direct local access.
+## Provider Chain
 
-### Current access model
+The stack configures a three-tier provider chain for Hermes:
 
-- **Primary/recommended** — HTTPS via Nginx on `https://localhost` (`/hermes/`, `/api/`, `/kokoro/`, `/ollama/`)
-- **Also currently available** — direct host-port access to Hermes (`8642`), Ollama (`11434`), and Kokoro (`8880`)
+| Priority | Provider | Endpoint | Hardware |
+|----------|----------|----------|----------|
+| 1 (primary) | OpenRouter | `https://api.openrouter.ai/v1` | Cloud |
+| 2 (fallback) | Ollama | `http://ollama:11434` | AMD GPU (ROCm) |
+| 3 (fallback) | LM Studio | `http://lmstudio:1234/v1` | AMD GPU (Vulkan) |
+
+When OpenRouter is unreachable (network down, rate-limited), Hermes automatically
+falls back to Ollama, then LM Studio.
+
+---
+
+## Networking & Ports
+
+### Host → Container Port Mappings
+
+| Host Port | Container | Internal Port | Purpose |
+|-----------|-----------|---------------|---------|
+| `8642` | hermes | `8642` | Gateway API (OpenAI-compatible) |
+| `9119` | hermes | `9119` | Dashboard web UI |
+| `2222` | hermes | `22` | SSH access |
+| `9999` | opencode | `22` | SSH access |
+| `11434` | ollama | `11434` | Ollama API |
+| `8880` | kokoro | `8880` | Kokoro TTS API |
+| `1234` | lmstudio | `1234` | LM Studio API (OpenAI-compatible) |
 
 ### Networks
 
-- **frontend** — only Nginx is here. External traffic hits port 443 on this network.
-- **backend** — all three application services (hermes, ollama, kokoro). Nginx also joins this network to reach their upstream endpoints.
+| Network | Type | Attached Services |
+|---------|------|-------------------|
+| `backend` | bridge | hermes, ollama, kokoro, opencode, lmstudio |
 
-## Certificate management
+---
 
-`nginx/certs/` contains `fullchain.pem` and `privkey.pem` (self-signed defaults generated by `setup-hermes.sh`). Replace with real certs when ready and re-run the script.
+## Access Patterns
 
-`.gitignore` covers `nginx/certs/*.pem` and `hermes/.env`.
+This stack has two fundamentally different access patterns depending on the container:
 
-## Environment
+### Pattern A: SSH Containers (CLI-first)
 
-Edit `hermes/.env` for:
-- API keys (`OPENROUTER_API_KEY`, etc.)
-- Dashboard flags (`HERMES_DASHBOARD=1`, `HERMES_DASHBOARD_HOST`, `HERMES_DASHBOARD_PORT`)
-- Telegram/Discord bot tokens
-- UID/GID for volume permissions
+Hermes Agent and Opencode CLI follow this pattern. They have **no HTTP/HTTPS services** — you reach them via SSH:
 
-## Nginx routing
+| Container | SSH Port | Purpose |
+|-----------|----------|---------|
+| `hermes` | `2222` | AI agent CLI + SSH access to data |
+| `opencode` | `9999` | Code assistant CLI |
 
-**No default route.** `location /` is intentionally absent — there is no catch-all proxy to hermes. Every service must be accessed under its own prefix.
+**How it works:**
+1. SSH server is baked into the Docker image (`openssh-server`)
+2. Entrypoint reads a public key from an environment variable (`HERMES_SSH_PUBKEY` / `OPENCODE_SSH_PUBKEY`)
+3. Before starting sshd, it writes the key to `~/.ssh/authorized_keys`
+4. sshd starts with `PubkeyAuthentication yes`, `PasswordAuthentication no`
+5. The key is regenerated every boot — survives volume wipes
 
-| Path | Upstream | Purpose |
-|------|----------|---------|
-| `/hermes/` | `http://hermes:9119` | Hermes dashboard (SPA) + assets + favicon |
-| `/api/` | `http://hermes:9119` | Hermes API + WebSocket endpoints |
-| `/kokoro/` | `http://kokoro:8880` | TTS web UI + API |
-| `/ollama/` | `http://ollama:11434` | LLM API |
+**Configuration:**
+```bash
+# hermes/.env
+HERMES_SSH_PUBKEY="ssh-rsa AAAA..."
 
-Key kokoro API endpoints (via `/kokoro/`):
-- `/kokoro/v1/audio/speech` — OpenAI-compatible TTS generation
-- `/kokoro/v1/audio/voices` — list available voices (67 voices)
-- `/kokoro/v1/models` — available models (`tts-1`, `tts-1-hd`, `kokoro`)
-- `/kokoro/health` — health check
-- `/kokoro/web/` — TTS web UI (FastKoko)
-
-All HTTPS routes are TLS-terminated at Nginx. Direct host ports for each service are also accessible via HTTP/plain connections.
-
-### Nginx patterns
-
-All location blocks use the **variable proxy_pass + resolver** pattern to avoid nginx's DNS caching at startup:
-
-```nginx
-resolver 127.0.0.11 valid=5s;
-
-location /kokoro/ {
-    set $upstream_kokoro http://kokoro:8880;
-    rewrite ^/kokoro(/.*)$ $1 break;
-    proxy_pass $upstream_kokoro;
-}
+# opencode/.env
+OPENCODE_SSH_PUBKEY="ssh-rsa AAAA..."
 ```
 
-The `resolver 127.0.0.11` points to Docker's embedded DNS. The `set` + `proxy_pass $variable` pattern forces nginx to resolve DNS on every request instead of caching it at config load time. The `rewrite ... break` strips the prefix before proxying.
+**Convenience:** Inside each container, `chat` is a PATH-installed script that `cd`s to `/opt/projects` and launches the CLI — no need to remember the full binary path.
 
-### Hermes prefix rewrite + SPA base path
+**Shared volume:** Both containers mount the `projects` volume at `/opt/projects`. Files written by one are instantly visible to the other. This is how they "join work" — same source of truth for project files.
 
-The hermes SPA (React) generates absolute URLs for API calls and route links. To keep everything under `/hermes/`, nginx rewrites the prefix **and** tells hermes its public path:
+### Pattern B: HTTP Services (Web-first)
 
-```nginx
-location /hermes/ {
-    set $upstream_hermes http://hermes:9119;
-    rewrite ^/hermes(/.*)$ $1 break;
-    proxy_pass $upstream_hermes;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Prefix /hermes;
-}
+Kokoro, Ollama, and LM Studio follow this pattern. They expose HTTP APIs — reach them via `http://localhost:<port>`:
+
+| Service | Direct Port | Purpose |
+|---------|-------------|---------|
+| Hermes dashboard | `9119` | Dashboard web UI |
+| Hermes API | `8642` | OpenAI-compatible API |
+| Kokoro | `8880` | TTS API + web UI |
+| Ollama | `11434` | LLM API |
+| LM Studio | `1234` | OpenAI-compatible API |
+
+**How it works:**
+Each service exposes its native port directly on the host. No path rewriting, no prefix confusion, no auth prompts.
+
+---
+
+## URL Routing
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **Hermes dashboard** | `http://localhost:9119` | Dashboard web UI |
+| **Hermes API** | `http://localhost:8642` | OpenAI-compatible API |
+| **Hermes SSH** | `ssh -p 2222 root@localhost` | SSH into Hermes container |
+| **Kokoro TTS** | `http://localhost:8880` | TTS API + web UI |
+| **Ollama LLM** | `http://localhost:11434` | LLM API |
+| **Opencode SSH** | `ssh -p 9999 root@localhost` | SSH into Opencode container |
+| **LM Studio** | `http://localhost:1234` | OpenAI-compatible API |
+
+### Key Endpoints
+
+**Hermes:**
+| Endpoint | Expected Status |
+|----------|----------------|
+| `http://localhost:9119/` | 200 (dashboard) |
+| `http://localhost:8642/v1/chat/completions` | 405 (POST-only endpoint exists) |
+
+**Kokoro TTS:**
+| Endpoint | Expected Status |
+|----------|----------------|
+| `http://localhost:8880/health` | 200 |
+| `http://localhost:8880/v1/audio/voices` | 200 (67 built-in voices) |
+| `POST http://localhost:8880/v1/audio/speech` | 200 (TTS generation) |
+
+**Ollama LLM:**
+| Endpoint | Expected Status |
+|----------|----------------|
+| `GET http://localhost:11434/api/tags` | 200 (list models) |
+| `POST http://localhost:11434/api/chat` | 200 (chat completion) |
+| `POST http://localhost:11434/api/generate` | 200 (text generation) |
+
+---
+
+## Environment Variables
+
+Each component documents its own config options:
+
+| Component | README |
+|-----------|--------|
+| Hermes Agent | [`hermes/README.md`](./hermes/README.md#configuration) |
+| Opencode CLI | [`opencode/README.md`](./opencode/README.md#configuration) |
+| Ollama | [`ollama/README.md`](./ollama/README.md#configuration) |
+| LM Studio | [`lmstudio/README.md`](./lmstudio/README.md#configuration) |
+
+Kokoro has no env vars — it runs out of the box.
+
+---
+
+## Volumes
+
+| Volume Name | Mount Point | Contents | Persistence |
+|-------------|-------------|----------|-------------|
+| `hermes_data` | `/opt/data` | Config, sessions, memories, skills, logs | Named volume |
+| `ollama_data` | `/root/.ollama` | Downloaded models | Named volume |
+| `kokoro_data` | `/kokoro/voices` | Custom voice data | Named volume |
+| `lmstudio_data` | `/root/.cache/lm-studio` | Downloaded models | Named volume |
+| `./projects` | `/opt/projects` | Shared project directory | Bind mount |
+
+---
+
+## Repository Structure
+
+```
+├── docker-compose.yml          # Orchestration — 5 services
+├── .gitignore
+├── README.md                   # Quick start + user-facing docs
+├── AGENTS.md                   # This file — detailed architecture
+├── hermes/
+│   ├── README.md               # Dashboard, API, SSH, provider chain
+│   ├── .env                    # Configuration (gitignored)
+│   ├── .env.example            # Reference config with all keys
+│   ├── Dockerfile              # Audio deps, SSH, chat script, custom entrypoint
+│   └── scripts/
+│       ├── entrypoint.sh       # Bootstrap, dashboard, SSH, privilege drop
+│       ├── chat                # PATH-installed CLI shortcut → cd /opt/projects && hermes
+│       └── setup-hermes.sh     # One-time: build, provider config
+├── kokoro/
+│   ├── README.md               # TTS API, voices, usage
+│   ├── Dockerfile              # No proxy patches — serves at root :8880
+│   └── scripts/
+│       └── entrypoint.sh       # Permission fix + privilege drop
+├── ollama/
+│   ├── README.md               # API, model manifest, GPU setup
+│   ├── Dockerfile              # Custom entrypoint + AMD GPU
+│   ├── ollama-models.txt       # Model manifest (editable at runtime)
+│   └── scripts/
+│       └── entrypoint.sh       # Auto-download + background watcher
+├── lmstudio/
+│   ├── README.md               # API, model download, GPU setup
+│   ├── .env                    # Model config (gitignored)
+│   ├── .env.example            # Reference config with model defaults
+│   ├── Dockerfile              # Vulkan + llmster install
+│   └── scripts/
+│       └── entrypoint.sh       # Daemon startup + model preload
+└── opencode/
+    ├── README.md               # SSH access, key setup, chat usage
+    ├── .env                    # SSH pubkey and config (gitignored)
+    ├── .env.example            # Reference config with SSH key placeholder
+    ├── Dockerfile               # Debian slim + SSH + opencode binary
+    └── scripts/
+        ├── entrypoint.sh        # Volume setup, SSH key injection, sshd
+        └── chat                 # PATH-installed CLI shortcut → cd /opt/projects && opencode
 ```
 
-The `X-Forwarded-Prefix` header causes the Python backend to inject `window.__HERMES_BASE_PATH__="/hermes"` into the HTML. The SPA's React Router uses this as basename, so:
+---
 
-- Routes stay under `/hermes/sessions`, `/hermes/logs`, etc. (no client-side redirect to `/sessions`)
-- Static assets and favicon are also served under `/hermes/` (e.g., `/hermes/assets/index-....js`)
+## Setup & Configuration
 
-However, the SPA's JavaScript also makes direct calls to WebSocket and API endpoints using absolute paths like `/api/ws` and `/api/sessions`. To support this, nginx also provides a direct API route without path rewriting, since Hermes expects API calls at `/api/*` paths:
-
-```nginx
-location /api/ {
-    set $upstream_hermes_api http://hermes:9119;
-    proxy_pass $upstream_hermes_api;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-}
-```
-
-This allows WebSocket connections to `wss://localhost/api/ws` and API calls to `https://localhost/api/sessions` to work correctly.
-
-## Workflow
+### First-time Setup
 
 ```bash
-# one-time: build image, configure provider, ensure certs
-./hermes/scripts/setup-hermes.sh
-
-# every time after
+docker compose build
 docker compose up -d
-
-# open dashboard (note: use /hermes/ path)
-curl -k https://localhost/hermes/
-
-# other endpoints
-curl -k https://localhost/kokoro/
-curl -k https://localhost/ollama/
-
-# logs
-docker compose logs nginx
-docker compose logs hermes
-docker compose logs ollama
-docker compose logs kokoro
 ```
 
-## Helper script (`hermes/scripts/setup-hermes.sh`)
+### Ongoing Configuration
 
-- Checks `docker compose` is available
-- Generates self-signed TLS certs in `nginx/certs/` if missing
-- Builds the Hermes Docker image
-- Runs `hermes config set ...` to persist OpenRouter as the default provider
-- Prints next steps
+- **Environment**: Edit `hermes/.env`, then `docker compose down && docker compose up -d`
+- **Ollama models**: Edit `ollama/ollama-models.txt` — auto-detected within 30 seconds
 
-Re-run after changing `hermes/.env` or replacing certs.
+---
 
-## Kokoro — volume permissions and web panel
+## Operational Commands
 
-### The problem
-
-The `ghcr.io/remsky/kokoro-fastapi-cpu` image runs as `appuser` (uid 1000) and sets `HOME=/root` by environment. When a named volume is mounted at `/kokoro/voices`, it inherits root ownership from the image's directory. The process can't write to it.
-
-### The fix (kokoro/entrypoint.sh + kokoro/Dockerfile)
-
-**Entrypoint** (`kokoro/entrypoint.sh`):
-```sh
-#!/bin/sh
-chown -R appuser:appuser /kokoro/voices 2>/dev/null || true
-export HOME=/home/appuser
-exec setpriv --reuid=appuser --regid=appuser --init-groups /app/entrypoint.sh "$@"
-```
-
-1. **`USER root`** in Dockerfile so the entrypoint runs as root and can chown.
-2. `chown -R appuser:appuser /kokoro/voices` fixes volume ownership on every start.
-3. `HOME=/home/appuser` prevents uv's cache from trying to write to `/root/.cache/uv` as appuser.
-4. `setpriv --reuid=appuser --regid=appuser --init-groups` drops privileges to appuser before exec'ing the original entrypoint.
-5. `exec` replaces the shell process so signals reach the child.
-
-**Dockerfile** (`kokoro/Dockerfile`):
-```dockerfile
-FROM ghcr.io/remsky/kokoro-fastapi-cpu:latest
-
-USER root
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && \
-    sed -i 's|/v1/audio/voices|/kokoro/v1/audio/voices|g' /app/web/src/services/VoiceService.js && \
-    sed -i 's|/v1/audio/speech|/kokoro/v1/audio/speech|g' /app/web/src/services/AudioService.js && \
-    sed -i 's|this.serverDownloadPath = .*|this.serverDownloadPath = `/kokoro/v1${downloadPath}`;|' /app/web/src/services/AudioService.js
-ENTRYPOINT ["/entrypoint.sh"]
-```
-
-### Web panel JS patching
-
-The web player is served as static files from `/app/web/` (no bundler — ES modules served directly). The JS makes `fetch()` calls to the API backend. Since nginx sits in front with a `/kokoro/` prefix, the fetch URLs must include it:
-
-| Original | Patched |
-|----------|---------|
-| `/v1/audio/voices` | `/kokoro/v1/audio/voices` |
-| `/v1/audio/speech` | `/kokoro/v1/audio/speech` |
-| `/v1${downloadPath}` | `/kokoro/v1${downloadPath}` |
-
-The sed patching happens at build time in the Dockerfile. The web UI serves with `Cache-Control: no-cache` so browser refreshes pick up the new JS.
-
-## Ollama — models list file
-
-`ollama/ollama-models.txt` is mounted into the container at `/opt/ollama-models.txt`. The custom entrypoint (`ollama/entrypoint.sh`) starts the server, then polls this file every 30 seconds for changes. When a new model line (non-empty, non-comment) is detected, it runs `ollama pull <model>` automatically.
-
-**Entrypoint** (`ollama/entrypoint.sh`):
-```sh
-#!/bin/bash
-MODELS_FILE="${OLLAMA_MODELS_FILE:-/opt/ollama-models.txt}"
-
-/bin/ollama serve &        # start server in background
-OLLAMA_PID=$!
-until /bin/ollama list; do sleep 1; done  # wait for ready
-
-sync_models() { ... }      # reads file, pulls missing models
-
-# Initial sync, then poll every 30s
-```
-
-Edit `ollama/ollama-models.txt` on the host and the changes are picked up within 30 seconds — no restart needed.
-
-## Adding new backends
-
-All future services follow the same pattern:
-
-1. Add a service block to `docker-compose.yml` with its own image, port, and volumes.
-2. Attach it to the `backend` network so Nginx can reach it by service name.
-3. Add a `location` block in `nginx/dashboard.conf` (or a new config under `nginx/`) to proxy the desired path.
-4. Expose host ports only for services that need direct access — most should be internal.
-
-```yaml
-services:
-  # ... existing services ...
-  my-service:
-    image: my/image:latest
-    restart: unless-stopped
-    networks:
-      - backend
-    # no host ports — only reachable via nginx
-```
-
-```nginx
-location /my-service/ {
-    set $upstream_my http://my-service:8080;
-    rewrite ^/my-service(/.*)$ $1 break;
-    proxy_pass $upstream_my;
-}
-```
-
-Nginx is the central frontend — all backends live behind it.
-
-### Frontend apps behind nginx
-
-If a service serves a frontend (like kokoro's web player) that makes `fetch()` calls to its own API, the JS must use the nginx-prefixed path (e.g., `/my-service/v1/...`) not the bare path (`/v1/...`). Patch at build time via sed in the Dockerfile.
-
-For SPAs that support a configurable base path (like hermes' React app), set `X-Forwarded-Prefix` in nginx so the backend injects the correct base path into the HTML:
-
-```nginx
-location /hermes/ {
-    rewrite ^/hermes(/.*)$ $1 break;
-    proxy_pass http://hermes:9119;
-    proxy_set_header X-Forwarded-Prefix /hermes;
-}
-```
-
-### Volume permissions for non-root images
-
-If a service runs as a non-root user but needs to write to a mounted volume:
-1. `USER root` in the Dockerfile so the entrypoint runs as root.
-2. `chown` the volume in the entrypoint.
-3. Drop privileges before exec'ing the original entrypoint with `setpriv` (preferred) or `gosu`.
-4. Check `$HOME` — the environment may point to the original user's home dir (`/root`) which won't be writable.
-
-## Operational notes
-
-| Action | Command |
-|--------|---------|
-| Start stack | `docker compose up -d` |
-| Rebuild | `docker compose build` (after Dockerfile changes) |
-| Stop | `docker compose down` |
-| Logs (all) | `docker compose logs -f` |
-| Logs (single) | `docker compose logs nginx` |
-| Shell (hermes) | `docker compose exec hermes bash` |
-| Shell (nginx) | `docker compose exec nginx sh` |
-| Shell (kokoro) | `docker compose exec kokoro sh` |
-| Shell (ollama) | `docker compose exec ollama sh` |
-| Route check | `curl -sk -o /dev/null -w '%{http_code}\n' https://localhost/kokoro/health` |
-| Recreate single | `docker compose up -d --force-recreate kokoro` |
-
-### Quick route verification
+### Service Lifecycle
 
 ```bash
-for r in / /hermes/ /kokoro/ /kokoro/web/ /kokoro/health /kokoro/v1/audio/voices /ollama/ /favicon.ico; do
-  printf '%s  ' "$r"
-  # Note: '/' returns 404 as no default route exists
-  curl -sko /dev/null -w '%{http_code}\n' "https://localhost$r"
+docker compose up -d          # Start all services
+docker compose down           # Stop all services
+docker compose restart <svc>  # Restart a single service
+docker compose ps             # View running services
+```
+
+### Logs
+
+```bash
+docker compose logs -f        # Follow all logs
+docker compose logs -f <svc>  # Follow specific service
+docker compose logs --tail=50 | grep -i error   # Recent errors
+```
+
+### Access Service Shells
+
+```bash
+docker compose exec hermes bash
+docker compose exec kokoro sh
+docker compose exec ollama sh
+docker compose exec opencode sh
+```
+
+### SSH Access to Hermes
+
+```bash
+ssh -p 2222 root@localhost
+ssh -p 2222 hermes@localhost
+```
+
+### SSH Access to Opencode
+
+```bash
+ssh -p 9999 root@localhost
+```
+
+Set `OPENCODE_SSH_PUBKEY` in `opencode/.env` with your public key.
+
+Add your public key to the container's `~/.ssh/authorized_keys` for the user you want to log in as. The key persists across restarts if placed in `/opt/data/.ssh/` (hermes user's home).
+
+### CLI Shortcut (Hermes)
+
+```bash
+# Inside the container, the `chat` command runs Hermes CLI from /opt/projects
+chat
+chat --help
+```
+
+### CLI Shortcut (Opencode)
+
+```bash
+# Inside the container, the `chat` command runs Opencode CLI from /opt/projects
+chat
+chat --help
+```
+
+### Build & Update
+
+```bash
+docker compose build              # Rebuild all images
+docker compose build --no-cache hermes   # Rebuild Hermes from scratch
+docker compose build --no-cache opencode # Rebuild Opencode from scratch
+docker compose pull kokoro        # Pull updated Kokoro image
+```
+
+---
+
+## Security Considerations
+
+### Authentication
+
+- **Hermes dashboard**: Generates session tokens automatically (no manual auth)
+- **SSH**: Key-only auth (`PasswordAuthentication no`). Add your public key to `~/.ssh/authorized_keys` for the user you want to log in as.
+- **Direct ports** (`8642`, `9119`, `2222`, `9999`, `11434`, `8880`, `1234`): Exposed to host — consider firewall rules for production
+- **Telegram**: Requires `TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALLOWED_USERS`
+
+### Data
+
+- Named volumes persist sessions, memories, models, and config
+- No volume encryption — sensitive data at rest is unprotected
+- `docker compose down -v` destroys all data (use with caution)
+
+---
+
+## Testing Connectivity
+
+```bash
+# Test all services on their direct ports
+for r in http://localhost:9119/ http://localhost:8642/v1/chat/completions http://localhost:8880/health http://localhost:11434/api/tags http://localhost:1234/v1/models; do
+  printf '%-45s  ' "$r"
+  curl -s -w '%{http_code}\n' -o /dev/null "$r"
 done
 ```
 
-## Known API quirks
+Expected results:
+- `http://localhost:9119/` → 200 (dashboard)
+- `http://localhost:8642/v1/chat/completions` → 405 (POST-only)
+- `http://localhost:8880/health` → 200
+- `http://localhost:11434/api/tags` → 200
+- `http://localhost:1234/v1/models` → 200
 
-- **TTS model**: use `tts-1`, `tts-1-hd`, or `kokoro` — NOT `kokoro_v1`.
-- **TTS format**: OpenAI-compatible endpoint (`input` field, not `text`).
-- **Voices**: returned as a `{"voices": [...]}` object, not a flat array.
-- **Kokoro web UI** is served under `/kokoro/web/` but proxied via the catch-all `/kokoro/` location.
+---
 
-## Maintenance
+## Troubleshooting
 
-- **Certs**: replace `nginx/certs/fullchain.pem` + `nginx/certs/privkey.pem`, then `docker compose restart nginx`.
-- **Env**: edit `hermes/.env`, then `docker compose down && docker compose up -d`.
-- **Provider**: run `docker compose run --rm hermes config set model.*` inside the container to change model/provider.
-- **Image updates**: `docker compose build --no-cache hermes` to force a fresh pull of the upstream base image.
-- **Named volumes**: delete and recreate if permissions are wrong:
-  ```bash
-  docker compose down -v    # CAUTION: destroys all volume data
-  docker compose up -d
-  ```
-
-## Documentation Maintenance
-
-The `README.md` file contains user-facing documentation for this stack. To keep it updated with current configuration:
-
-1. **Route Changes**: Update the "URL Routing" table and "Key Endpoints" section when adding/removing services
-2. **Configuration Updates**: Keep the "Configuration" section in sync with `hermes/.env` options
-3. **Script Documentation**: Update setup script descriptions when modifying `hermes/scripts/setup-hermes.sh`
-4. **Endpoint Verification**: Test all documented URLs in the "Testing Connectivity" section
-
-To regenerate README.md with current service information:
-```bash
-# Update route table
-docker compose exec nginx cat /etc/nginx/conf.d/default.conf
-
-# Check current environment variables
-docker compose exec hermes env | sort
-
-# Verify service endpoints
-for r in /hermes/ /api/status /kokoro/health /ollama/api/tags; do
-  printf '%-30s: ' "https://localhost$r"
-  curl -sko /dev/null -w '%{http_code}\n' "https://localhost$r"
-done
-```
-
-When adding new services, follow the existing patterns in both AGENTS.md and README.md for consistency.
+| Issue | Likely Cause | Fix |
+|-------|-------------|-----|
+| "Session closed" in dashboard | WebSocket / token | Refresh page, check Hermes config |
+| Ollama model not downloading | Bad model name in file | Check spelling in `ollama-models.txt`, check logs |
+| Permission errors on volumes | Wrong UID/GID | Set `HERMES_UID`/`HERMES_GID` in `.env` |
+| SSH "Permission denied (publickey)" | No authorized key for user | Add your public key to `~/.ssh/authorized_keys` inside container |
+| LM Studio model not found | Wrong model name | Check `LMSTUDIO_MODEL` in `lmstudio/.env`, use `lms get` with correct name |

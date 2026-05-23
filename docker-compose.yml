@@ -8,12 +8,15 @@ services:
 
     ports:
       - "8642:8642"   # gateway API
+      - "9119:9119"   # dashboard
+      - "2222:22"     # SSH access
 
     env_file:
       - ./hermes/.env
 
     volumes:
       - hermes_data:/opt/data
+      - ./projects:/opt/projects
 
     deploy:
       resources:
@@ -24,7 +27,26 @@ services:
     networks:
       - backend
 
-  # ── Ollama LLM server ───────────────────────────────────────
+  # ── Opencode CLI ──────────────────────────────────────────────
+  opencode:
+    build: ./opencode
+    container_name: opencode
+    restart: unless-stopped
+    command: sleep infinity
+
+    ports:
+      - "9999:22"     # SSH access
+
+    env_file:
+      - ./opencode/.env
+
+    volumes:
+      - ./projects:/opt/projects
+
+    networks:
+      - backend
+
+  # ── Ollama LLM server (AMD GPU via ROCm) ─────────────────────
   ollama:
     build: ./ollama
     container_name: ollama
@@ -35,6 +57,13 @@ services:
 
     ports:
       - "11434:11434"
+
+    devices:
+      - /dev/kfd
+      - /dev/dri
+
+    group_add:
+      - video
 
     volumes:
       - ollama_data:/root/.ollama
@@ -58,33 +87,35 @@ services:
     networks:
       - backend
 
-  # ── Nginx reverse proxy (TLS termination) ───────────────────
-  nginx:
-    image: nginx:stable-alpine
-    container_name: nginx
+  # ── LM Studio (AMD GPU via Vulkan) ──────────────────────────
+  lmstudio:
+    build: ./lmstudio
+    container_name: lmstudio
     restart: unless-stopped
 
     ports:
-      - "443:443"
+      - "1234:1234"
+
+    environment:
+      - LMSTUDIO_MODEL=llama-3.2-1b-instruct
+      - LMSTUDIO_PRELOAD=false
 
     volumes:
-      - ./nginx/dashboard.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      - lmstudio_data:/root/.cache/lm-studio
+      - /dev/dri:/dev/dri:ro
 
-    depends_on:
-      - hermes
+    group_add:
+      - video
 
     networks:
-      - frontend
       - backend
 
 volumes:
   hermes_data:
   ollama_data:
   kokoro_data:
+  lmstudio_data:
 
 networks:
-  frontend:
-    driver: bridge
   backend:
     driver: bridge
