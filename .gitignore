@@ -1,0 +1,2 @@
+hermes/.env
+nginx/certs/*.pem

@@ -1,0 +1,9 @@
+# Ollama models to auto-pull at startup.
+# Uncomment lines below to download models.
+# One model per line, e.g.:
+#
+#   llama3.2:3b
+#   llama3.2:1b
+#   mistral:7b
+#   phi4:14b
+#   nomic-embed-text:latest
