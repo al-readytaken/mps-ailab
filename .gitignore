@@ -1,7 +1,4 @@
 hermes/.env
-nginx/certs/*.pem
-nginx/.env
-nginx/.htpasswd
 opencode/.env
 lmstudio/.env
 projects/
