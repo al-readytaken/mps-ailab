@@ -12,7 +12,7 @@
 |---------|---------------|------|
 | Dashboard | http://localhost:9119 | `9119` |
 | API | http://localhost:8642/v1 | `8642` |
-| SSH | `ssh -p 2222 hermes@localhost` | `2222` |
+| SSH | `ssh -p 8888 hermes@localhost` | `8888` |
 
 Click the dashboard link to open the UI, or SSH in for CLI access. The API is OpenAI-compatible.
 
@@ -57,15 +57,15 @@ The gateway exposes an OpenAI-compatible API at http://localhost:8642/v1. Any Op
 
 ### SSH Access
 
-The container runs an SSH server on port `2222` with key-only authentication.
+The container runs an SSH server on port `8888` with key-only authentication.
 
 **Setting up the key:** Set `HERMES_SSH_PUBKEY` in [`./.env`](./.env) with your public key. On first boot, the [`entrypoint.sh`](./entrypoint.sh) writes it to `~/.ssh/authorized_keys` for both `root` and the `hermes` user.
 
 **Logging in:**
 
 ```bash
-ssh -p 2222 hermes@localhost
-ssh -p 2222 root@localhost
+ssh -p 8888 hermes@localhost
+ssh -p 8888 root@localhost
 ```
 
 Once inside, the `chat` command launches the Hermes CLI from `/opt/projects`:
@@ -92,7 +92,7 @@ When OpenRouter is unreachable or rate-limited, requests fall through to local p
 
 ```bash
 # SSH into the container
-ssh -p 2222 hermes@localhost
+ssh -p 8888 hermes@localhost
 
 # Inside the container, start the CLI
 chat

@@ -17,7 +17,7 @@ Each component has its own README with detailed configuration, usage, and exampl
               │            │            │           │
     ┌─────────▼────────┐ ┌─▼─────┐ ┌───▼────────┐ ┌─▼──────────┐
     │  Hermes Agent    │ │ Ollama│ │   Kokoro   │ │ LM Studio  │
-    │ :8642 + SSH :2222│ │:11434 │ │  TTS :8880 │ │ :1234      │
+    │ :8642 + SSH :8888│ │:11434 │ │  TTS :8880 │ │ :1234      │
     └─────────┬────────┘ └───────┘ └────────────┘ └────────────┘
               │
          hermes_data
@@ -39,7 +39,7 @@ Each component has its own README with detailed configuration, usage, and exampl
 
 | Component | README | Container | Host Ports | Key Details |
 |-----------|--------|-----------|------------|-------------|
-| Hermes Agent | [`hermes/README.md`](./hermes/README.md) | `hermes` | `8642`, `9119`, `2222` | AI gateway + dashboard + SSH, memory 4G/2CPU |
+| Hermes Agent | [`hermes/README.md`](./hermes/README.md) | `hermes` | `8642`, `9119`, `8888` | AI gateway + dashboard + SSH, memory 4G/2CPU |
 | Ollama | [`ollama/README.md`](./ollama/README.md) | `ollama` | `11434` | Local LLM (CPU/ROCm), auto-pulls models |
 | Kokoro TTS | [`kokoro/README.md`](./kokoro/README.md) | `kokoro` | `8880` | Text-to-speech engine, 67 built-in voices |
 | Opencode CLI | [`opencode/README.md`](./opencode/README.md) | `opencode` | `9999` | Code assistant CLI (SSH-only) |
@@ -68,7 +68,7 @@ falls back to Ollama, then LM Studio.
 |-----------|-----------|---------------|---------|
 | `8642` | hermes | `8642` | Gateway API (OpenAI-compatible) |
 | `9119` | hermes | `9119` | Dashboard web UI |
-| `2222` | hermes | `22` | SSH access |
+| `8888` | hermes | `22` | SSH access |
 | `9999` | opencode | `22` | SSH access |
 | `11434` | ollama | `11434` | Ollama API |
 | `8880` | kokoro | `8880` | Kokoro TTS API |
@@ -92,7 +92,7 @@ Hermes Agent and Opencode CLI follow this pattern. They have **no HTTP/HTTPS ser
 
 | Container | SSH Port | Purpose |
 |-----------|----------|---------|
-| `hermes` | `2222` | AI agent CLI + SSH access to data |
+| `hermes` | `8888` | AI agent CLI + SSH access to data |
 | `opencode` | `9999` | Code assistant CLI |
 
 **How it works:**
@@ -138,7 +138,7 @@ Each service exposes its native port directly on the host. No path rewriting, no
 |---------|-----|---------|
 | **Hermes dashboard** | `http://localhost:9119` | Dashboard web UI |
 | **Hermes API** | `http://localhost:8642` | OpenAI-compatible API |
-| **Hermes SSH** | `ssh -p 2222 root@localhost` | SSH into Hermes container |
+| **Hermes SSH** | `ssh -p 8888 root@localhost` | SSH into Hermes container |
 | **Kokoro TTS** | `http://localhost:8880` | TTS API + web UI |
 | **Ollama LLM** | `http://localhost:11434` | LLM API |
 | **Opencode SSH** | `ssh -p 9999 root@localhost` | SSH into Opencode container |
@@ -288,8 +288,8 @@ docker compose exec opencode sh
 ### SSH Access to Hermes
 
 ```bash
-ssh -p 2222 root@localhost
-ssh -p 2222 hermes@localhost
+ssh -p 8888 root@localhost
+ssh -p 8888 hermes@localhost
 ```
 
 ### SSH Access to Opencode
@@ -335,7 +335,7 @@ docker compose pull kokoro        # Pull updated Kokoro image
 
 - **Hermes dashboard**: Generates session tokens automatically (no manual auth)
 - **SSH**: Key-only auth (`PasswordAuthentication no`). Add your public key to `~/.ssh/authorized_keys` for the user you want to log in as.
-- **Direct ports** (`8642`, `9119`, `2222`, `9999`, `11434`, `8880`, `1234`): Exposed to host — consider firewall rules for production
+- **Direct ports** (`8642`, `9119`, `8888`, `9999`, `11434`, `8880`, `1234`): Exposed to host — consider firewall rules for production
 - **Telegram**: Requires `TELEGRAM_BOT_TOKEN` + `TELEGRAM_ALLOWED_USERS`
 
 ### Data

@@ -9,7 +9,7 @@ services:
     ports:
       - "8642:8642"   # gateway API
       - "9119:9119"   # dashboard
-      - "2222:22"     # SSH access
+      - "8888:22"     # SSH access
 
     env_file:
       - ./hermes/.env

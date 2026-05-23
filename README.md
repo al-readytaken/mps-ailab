@@ -8,7 +8,7 @@ Each component has its own README with detailed docs — see the [Repository Str
 
 | Service | Description | Access |
 |---------|-------------|--------|
-| **Hermes Agent** | AI agent gateway with dashboard and SSH | HTTP :8642 (API) + :9119 (dashboard) + SSH :2222 |
+| **Hermes Agent** | AI agent gateway with dashboard and SSH | HTTP :8642 (API) + :9119 (dashboard) + SSH :8888 |
 | **Opencode CLI** | Code assistant CLI with SSH | SSH :9999 |
 | **Kokoro TTS** | Text-to-speech engine | HTTP :8880 |
 | **Ollama LLM** | LLM server (CPU / AMD ROCm) | HTTP :11434 |
@@ -39,7 +39,7 @@ docker compose up -d
               │            │            │           │
     ┌─────────▼────────┐ ┌─▼─────┐ ┌───▼────────┐ ┌─▼──────────┐
     │  Hermes Agent    │ │ Ollama│ │   Kokoro   │ │ LM Studio  │
-    │ :8642+SSH :2222  │ │:11434 │ │  TTS :8880 │ │ :1234      │
+    │ :8642+SSH :8888  │ │:11434 │ │  TTS :8880 │ │ :1234      │
     │ dashboard :9119  │ │       │ │            │ │            │
     └─────────┬────────┘ └───────┘ └────────────┘ └────────────┘
               │
@@ -62,7 +62,7 @@ docker compose up -d
 
 ```bash
 # SSH into Hermes
-ssh -p 2222 root@localhost
+ssh -p 8888 root@localhost
 
 # SSH into Opencode
 ssh -p 9999 root@localhost
@@ -105,7 +105,7 @@ Every service exposes its native port directly on `localhost`. Zero path rewriti
 |---------|-----|------|---------|
 | **Hermes dashboard** | `http://localhost:9119` | `9119` | Dashboard web UI |
 | **Hermes API** | `http://localhost:8642` | `8642` | OpenAI-compatible API |
-| **Hermes SSH** | `ssh -p 2222 root@localhost` | `2222` | SSH into Hermes container |
+| **Hermes SSH** | `ssh -p 8888 root@localhost` | `8888` | SSH into Hermes container |
 | **Kokoro TTS** | `http://localhost:8880` | `8880` | TTS API + web UI |
 | **Ollama LLM** | `http://localhost:11434` | `11434` | LLM API |
 | **Opencode SSH** | `ssh -p 9999 root@localhost` | `9999` | SSH into Opencode container |
@@ -188,7 +188,7 @@ docker compose exec ollama sh
 ## Security
 
 - **SSH**: Key-only auth (`PasswordAuthentication no`). Inject your public key via `*_SSH_PUBKEY` env vars.
-- **Direct ports** (`8642`, `9119`, `2222`, `9999`, `11434`, `8880`, `1234`): Exposed to host — consider firewall rules for production.
+- **Direct ports** (`8642`, `9119`, `8888`, `9999`, `11434`, `8880`, `1234`): Exposed to host — consider firewall rules for production.
 - **Data**: Named volumes for persistence. `docker compose down -v` destroys all data.
 
 ## Testing
