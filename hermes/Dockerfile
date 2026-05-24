@@ -36,14 +36,23 @@ RUN chmod +x /usr/local/bin/chat
 COPY scripts/setup /usr/local/bin/setup
 RUN chmod +x /usr/local/bin/setup
 
-# Patch _PROVIDER_MODELS to add openrouter entry (no default model for it)
-# Uses pattern match + sed -f to preserve literal newlines (Docker RUN \ eats them)
-RUN echo '/_PROVIDER_MODELS[[:space:]]*=[[:space:]]*{/a\' > /tmp/patch.sed && \
-    echo '    "openrouter": [' >> /tmp/patch.sed && \
-    echo '        "deepseek/deepseek-v4-pro",' >> /tmp/patch.sed && \
-    echo '        "x-ai/grok-4.3",' >> /tmp/patch.sed && \
-    echo '        "minimax/minimax-m2.7",' >> /tmp/patch.sed && \
-    echo '        "google/gemini-3-pro-preview",' >> /tmp/patch.sed && \
-    echo '    ],' >> /tmp/patch.sed && \
-    sed -i -f /tmp/patch.sed /opt/hermes/hermes_cli/models.py && \
-    rm /tmp/patch.sed
+# Patch _PROVIDER_MODELS to add openrouter entry (Python — portable across sed implementations)
+RUN python3 << 'PYEOF'
+import re
+with open('/opt/hermes/hermes_cli/models.py') as f:
+    content = f.read()
+new = '    "openrouter": [\n' \
+      '        "deepseek/deepseek-v4-pro",\n' \
+      '        "x-ai/grok-4.3",\n' \
+      '        "minimax/minimax-m2.7",\n' \
+      '        "google/gemini-3-pro-preview",\n' \
+      '    ],\n'
+content = re.sub(
+    r'(_PROVIDER_MODELS\s*(?::\s*dict\[str,\s*list\[str\]\])?\s*=\s*\{)',
+    r'\1\n' + new,
+    content,
+    count=1,
+)
+with open('/opt/hermes/hermes_cli/models.py', 'w') as f:
+    f.write(content)
+PYEOF
