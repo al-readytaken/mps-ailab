@@ -1,0 +1,4 @@
+ignored:
+  - DL3008    # apt pinning — container images use rolling distro packages intentionally
+  - DL3018    # pip pinning — not used in this stack
+  - DL4006    # pipefail — entrypoints handle errors via set -e

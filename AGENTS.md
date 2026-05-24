@@ -374,3 +374,9 @@ Expected results:
 | Permission errors on volumes | Wrong UID/GID | Set `HERMES_UID`/`HERMES_GID` in `.env` |
 | SSH "Permission denied (publickey)" | No authorized key for user | Add your public key to `~/.ssh/authorized_keys` inside container |
 | LM Studio model not found | Wrong model name | Check `LMSTUDIO_MODEL` in `lmstudio/.env`, use `lms get` with correct name |
+
+---
+
+## Language
+
+Always respond in English.
