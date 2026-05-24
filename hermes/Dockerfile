@@ -36,11 +36,8 @@ RUN chmod +x /usr/local/bin/chat
 COPY scripts/setup /usr/local/bin/setup
 RUN chmod +x /usr/local/bin/setup
 
-# ensure-model-config — writes model config to config.yaml every boot
-COPY scripts/ensure-model-config.py /opt/hermes/docker/ensure-model-config.py
-
 # Patch _PROVIDER_MODELS to add openrouter entry (no default model for it)
-RUN sed -i '/_PROVIDER_MODELS\s*=\s*{/a\    "openrouter": [\
+RUN sed -i '189a\    "openrouter": [\
         "deepseek/deepseek-v4-pro",\
         "x-ai/grok-4.3",\
         "minimax/minimax-m2.7",\

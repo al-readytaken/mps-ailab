@@ -14,8 +14,26 @@ mkdir -p "$CONFIG_DIR"/{sessions,memories,skills,cron,hooks,logs,skins}
 export API_SERVER_KEY
 
 # Auto-generate .env from host environment variables if missing
-if [ ! -f "$CONFIG_DIR/.env" ] && [ -n "$OPENROUTER_API_KEY" ]; then
-  ENV_FILE=/opt/hermes/.env /usr/local/bin/setup
+if [ ! -f "$CONFIG_DIR/.env" ]; then
+  if [ -n "$OPENROUTER_API_KEY" ]; then
+    cat > "$CONFIG_DIR/.env" <<EOF
+OPENROUTER_API_KEY=$OPENROUTER_API_KEY
+TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN
+TELEGRAM_ALLOWED_USERS=$TELEGRAM_ALLOWED_USERS
+TELEGRAM_HOME_CHANNEL=$TELEGRAM_HOME_CHANNEL
+TELEGRAM_HOME_CHANNEL_THREAD_ID=$TELEGRAM_HOME_CHANNEL_THREAD_ID
+EOF
+    [ -n "$TELEGRAM_MODEL_PROVIDER" ] && echo "TELEGRAM_MODEL_PROVIDER=$TELEGRAM_MODEL_PROVIDER" >> "$CONFIG_DIR/.env"
+    [ -n "$TELEGRAM_MODEL_NAME" ] && echo "TELEGRAM_MODEL_NAME=$TELEGRAM_MODEL_NAME" >> "$CONFIG_DIR/.env"
+    chmod 600 "$CONFIG_DIR/.env"
+    chown hermes:hermes "$CONFIG_DIR/.env"
+
+    gosu hermes /opt/hermes/.venv/bin/hermes config set model.provider "${MODEL_PROVIDER:-openrouter}" 2>/dev/null || true
+    gosu hermes /opt/hermes/.venv/bin/hermes config set model.name "${MODEL_NAME:-deepseek/deepseek-v4-pro}" 2>/dev/null || true
+    gosu hermes /opt/hermes/.venv/bin/hermes config set model.base_url "${MODEL_BASE_URL:-https://openrouter.ai/api/v1}" 2>/dev/null || true
+  else
+    echo "Warning: OPENROUTER_API_KEY not set — can't generate .env. Set it in hermes/.env"
+  fi
 fi
 
 # Start dashboard (background) if enabled
@@ -59,11 +77,6 @@ if [ "$(id -u)" = "0" ]; then
   getent passwd "$HERMES_UID" > /dev/null 2>&1 \
     && chown -R "$HERMES_UID:$HERMES_GID" "$CONFIG_DIR" \
     || chmod -R a+rwX "$CONFIG_DIR"
-fi
-
-# Always ensure model config is set in config.yaml (idempotent — runs every boot)
-if [ -n "$OPENROUTER_API_KEY" ]; then
-  /opt/hermes/.venv/bin/python3 /opt/hermes/docker/ensure-model-config.py
 fi
 
 # Drop privileges to hermes user and run the requested command
