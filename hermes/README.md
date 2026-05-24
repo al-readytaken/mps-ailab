@@ -40,9 +40,9 @@ Set these in [`./.env`](./.env):
 | `HERMES_DASHBOARD_PORT` | No | `9119` | Dashboard listen port |
 | `TELEGRAM_BOT_TOKEN` | No | — | Telegram bot integration token |
 | `TELEGRAM_ALLOWED_USERS` | No | — | Comma-separated Telegram usernames |
-| `HERMES_UID` | No | `10000` | UID for `/opt/data` ownership |
-| `HERMES_GID` | No | `10000` | GID for `/opt/data` ownership |
+| `HERMES_UID` | No | `1000` | UID for `/home/hermes/.hermes` ownership |
 
+| `HERMES_GID` | No | `1000` | GID for `/home/hermes/.hermes` ownership |
 The [`entrypoint.sh`](./entrypoint.sh) reads these at startup, then drops privileges to the `hermes` user before running the gateway.
 
 ## Usage
@@ -74,7 +74,7 @@ Once inside, the `chat` command launches the Hermes CLI from `/opt/projects`:
 chat
 ```
 
-Keys persist across restarts when placed in `/opt/data/.ssh/` (the `hermes` user's home directory).
+Keys persist across restarts when placed in `/home/hermes/.ssh/` (the `hermes` user's home directory).
 
 ### Provider Chain
 
@@ -107,7 +107,7 @@ curl -X POST http://localhost:8642/v1/chat/completions \
 
 | Volume | Mount | Contents |
 |--------|-------|----------|
-| `hermes_data` | `/opt/data` | Config, sessions, memories, skills, logs |
+| `./hermes/config` (bind) | `/home/hermes/.hermes` | Config, sessions, memories, skills, logs (host-editable) |
 | `./projects` (bind) | `/opt/projects` | Shared project files (world-writable) |
 
 ## Troubleshooting

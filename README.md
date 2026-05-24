@@ -17,15 +17,18 @@ Each component has its own README with detailed docs — see the [Repository Str
 ## Quick Start
 
 ```bash
-# One-time setup (certs, build, provider config)
-./hermes/scripts/setup-hermes.sh
+# 1. Build images
+docker compose build
 
-# Configure API keys and SSH keys in .env files
-#   hermes/.env    → OPENROUTER_API_KEY, HERMES_SSH_PUBKEY
+# 2. Configure API keys and SSH keys in .env files
+#   hermes/.env    → OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, HERMES_SSH_PUBKEY
 #   opencode/.env  → OPENCODE_SSH_PUBKEY
 
-# Start everything
+# 3. Start everything
 docker compose up -d
+
+# 4. Run initial config inside the container (one-time)
+ssh -p 8888 hermes@localhost setup
 ```
 
 ## Architecture
@@ -43,7 +46,7 @@ docker compose up -d
     │ dashboard :9119  │ │       │ │            │ │            │
     └─────────┬────────┘ └───────┘ └────────────┘ └────────────┘
               │
-         hermes_data
+         hermes/config
         (persistent)
           projects
         (shared vol.)
@@ -132,7 +135,7 @@ Both Hermes and Opencode mount `./projects` from the host at `/opt/projects`. Fi
 │   └── scripts/
 │       ├── entrypoint.sh       # Bootstrap, dashboard, SSH, privilege drop
 │       ├── chat                # PATH-installed CLI shortcut → cd /opt/projects && hermes
-│       └── setup-hermes.sh     # One-time: build, provider config
+│       ├── setup               # Initial config generator (env → .hermes/.env)
 ├── opencode/
 │   ├── README.md               # SSH access, key setup, chat usage
 │   ├── .env                    # SSH pubkey (gitignored)

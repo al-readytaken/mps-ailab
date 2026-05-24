@@ -1,0 +1,67 @@
+#!/bin/bash
+set -e
+
+HERMES_CLI="${HERMES_CLI:-/opt/hermes/.venv/bin/hermes}"
+GOSU="${GOSU:-gosu hermes}"
+
+CONFIG_DIR=/home/hermes/.hermes
+ENV_FILE="${ENV_FILE:-/opt/hermes/.env}"
+
+# Hermes initial config generator — run once on first boot
+# Reads hermes/.env (mounted from host) and writes config to /home/hermes/.hermes/
+
+echo "==> Hermes Setup — Initial Config Generator"
+
+# Load environment from mounted host .env file
+if [ -f "$ENV_FILE" ]; then
+  set -a
+  source "$ENV_FILE"
+  set +a
+else
+  echo "Error: $ENV_FILE not found — mount hermes/.env into container" >&2
+  exit 1
+fi
+
+# Validate
+if [ -z "$OPENROUTER_API_KEY" ]; then
+  echo "Error: OPENROUTER_API_KEY is not set in $ENV_FILE" >&2
+  exit 1
+fi
+
+# Ensure config directory exists (bind mount)
+mkdir -p "$CONFIG_DIR"
+
+# Write API keys and Telegram config
+echo "==> Writing $CONFIG_DIR/.env..."
+cat > "$CONFIG_DIR/.env" <<EOF
+OPENROUTER_API_KEY=$OPENROUTER_API_KEY
+
+# Platform allowlists
+TELEGRAM_ALLOWED_USERS=$TELEGRAM_ALLOWED_USERS
+
+# Telegram home channel
+TELEGRAM_HOME_CHANNEL=$TELEGRAM_HOME_CHANNEL
+TELEGRAM_HOME_CHANNEL_THREAD_ID=$TELEGRAM_HOME_CHANNEL_THREAD_ID
+EOF
+
+# Append Telegram model config if set
+if [ -n "$TELEGRAM_MODEL_PROVIDER" ]; then
+  echo "TELEGRAM_MODEL_PROVIDER=$TELEGRAM_MODEL_PROVIDER" >> "$CONFIG_DIR/.env"
+fi
+if [ -n "$TELEGRAM_MODEL_NAME" ]; then
+  echo "TELEGRAM_MODEL_NAME=$TELEGRAM_MODEL_NAME" >> "$CONFIG_DIR/.env"
+fi
+chmod 600 "$CONFIG_DIR/.env"
+
+# Fix ownership so hermes user can manage config files
+chown -R hermes:hermes "$CONFIG_DIR" 2>/dev/null || true
+
+# Configure model provider via hermes CLI (run as hermes user)
+echo "==> Configuring model provider..."
+$GOSU $HERMES_CLI config set model.provider  "${MODEL_PROVIDER:-openrouter}"
+$GOSU $HERMES_CLI config set model.name      "${MODEL_NAME:-deepseek/deepseek-v4-pro}"
+$GOSU $HERMES_CLI config set model.base_url  "${MODEL_BASE_URL:-https://openrouter.ai/api/v1}"
+
+echo ""
+echo "Setup complete. Config files are in $CONFIG_DIR/"
+echo "Run 'chat' to start the Hermes CLI, or the container will start the gateway automatically."

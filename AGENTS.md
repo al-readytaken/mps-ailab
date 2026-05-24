@@ -20,7 +20,7 @@ Each component has its own README with detailed configuration, usage, and exampl
     │ :8642 + SSH :8888│ │:11434 │ │  TTS :8880 │ │ :1234      │
     └─────────┬────────┘ └───────┘ └────────────┘ └────────────┘
               │
-         hermes_data
+         hermes/config
         (persistent)
           projects
         (shared vol.)
@@ -187,7 +187,7 @@ Kokoro has no env vars — it runs out of the box.
 
 | Volume Name | Mount Point | Contents | Persistence |
 |-------------|-------------|----------|-------------|
-| `hermes_data` | `/opt/data` | Config, sessions, memories, skills, logs | Named volume |
+| `./hermes/config` | `/home/hermes/.hermes` | Config, sessions, memories, skills, logs | Bind mount (host-editable) |
 | `ollama_data` | `/root/.ollama` | Downloaded models | Named volume |
 | `kokoro_data` | `/kokoro/voices` | Custom voice data | Named volume |
 | `lmstudio_data` | `/root/.cache/lm-studio` | Downloaded models | Named volume |
@@ -210,7 +210,7 @@ Kokoro has no env vars — it runs out of the box.
 │   └── scripts/
 │       ├── entrypoint.sh       # Bootstrap, dashboard, SSH, privilege drop
 │       ├── chat                # PATH-installed CLI shortcut → cd /opt/projects && hermes
-│       └── setup-hermes.sh     # One-time: build, provider config
+│       └── setup               # Initial config generator (env → .hermes/.env)
 ├── kokoro/
 │   ├── README.md               # TTS API, voices, usage
 │   ├── Dockerfile              # No proxy patches — serves at root :8880
@@ -300,7 +300,7 @@ ssh -p 9999 root@localhost
 
 Set `OPENCODE_SSH_PUBKEY` in `opencode/.env` with your public key.
 
-Add your public key to the container's `~/.ssh/authorized_keys` for the user you want to log in as. The key persists across restarts if placed in `/opt/data/.ssh/` (hermes user's home).
+Add your public key to the container's `~/.ssh/authorized_keys` for the user you want to log in as. The key persists across restarts if placed in `hermes/config/.ssh/` (on host) or inside the container at `/home/hermes/.ssh/`.
 
 ### CLI Shortcut (Hermes)
 

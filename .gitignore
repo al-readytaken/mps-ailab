@@ -1,4 +1,5 @@
 hermes/.env
+hermes/config/
 opencode/.env
 lmstudio/.env
 projects/

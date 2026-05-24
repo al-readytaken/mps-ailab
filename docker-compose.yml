@@ -14,9 +14,18 @@ services:
     env_file:
       - ./hermes/.env
 
+    environment:
+      - HERMES_UID=1000
+      - HERMES_GID=1000
+      - HERMES_HOME=/home/hermes/.hermes
+      - API_SERVER_ENABLED=true
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_KEY=56627122abeb56858ad5452bd6a084ca3fdb15f12e1fa32d04659b27d19ed1e6
+
     volumes:
-      - hermes_data:/opt/data
+      - ./hermes/config:/home/hermes/.hermes
       - ./projects:/opt/projects
+      - ./hermes/.env:/opt/hermes/.env:ro
 
     deploy:
       resources:
@@ -111,7 +120,6 @@ services:
       - backend
 
 volumes:
-  hermes_data:
   ollama_data:
   kokoro_data:
   lmstudio_data:
