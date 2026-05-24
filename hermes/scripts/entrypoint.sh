@@ -61,6 +61,13 @@ if [ "$(id -u)" = "0" ]; then
     || chmod -R a+rwX "$CONFIG_DIR"
 fi
 
+# Always ensure model config is set (idempotent — runs every boot)
+if [ -n "$OPENROUTER_API_KEY" ]; then
+  gosu hermes /opt/hermes/.venv/bin/hermes config set model.provider "${MODEL_PROVIDER:-openrouter}" 2>/dev/null || true
+  gosu hermes /opt/hermes/.venv/bin/hermes config set model.name "${MODEL_NAME:-deepseek/deepseek-v4-pro}" 2>/dev/null || true
+  gosu hermes /opt/hermes/.venv/bin/hermes config set model.base_url "${MODEL_BASE_URL:-https://openrouter.ai/api/v1}" 2>/dev/null || true
+fi
+
 # Drop privileges to hermes user and run the requested command
 if [ "$(id -u)" = "0" ] && getent passwd hermes > /dev/null 2>&1; then
   exec gosu hermes /opt/hermes/.venv/bin/hermes "$@"
