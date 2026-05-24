@@ -1,6 +1,6 @@
 FROM ghcr.io/remsky/kokoro-fastapi-cpu:latest
 
-USER root
+EXPOSE 8880
 COPY scripts/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

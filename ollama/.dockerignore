@@ -1,0 +1,5 @@
+.git
+*.md
+Dockerfile
+scripts/
+ollama-models.txt

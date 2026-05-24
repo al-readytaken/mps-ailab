@@ -37,7 +37,7 @@ sync_models() {
 # Initial sync if file exists
 if [ -f "$MODELS_FILE" ]; then
   sync_models "$MODELS_FILE"
-  LAST_HASH=$(md5sum "$MODELS_FILE" 2>/dev/null || echo "")
+  LAST_HASH=$(sha256sum "$MODELS_FILE" 2>/dev/null || echo "")
 else
   LAST_HASH=""
 fi
@@ -49,7 +49,7 @@ fi
     if [ ! -f "$MODELS_FILE" ]; then
       continue
     fi
-    NEW_HASH=$(md5sum "$MODELS_FILE" 2>/dev/null || echo "")
+    NEW_HASH=$(sha256sum "$MODELS_FILE" 2>/dev/null || echo "")
     if [ "$NEW_HASH" != "$LAST_HASH" ]; then
       echo "ollama-entrypoint: Models file changed, syncing..."
       sync_models "$MODELS_FILE"

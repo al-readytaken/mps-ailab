@@ -1,5 +1,5 @@
-FROM ollama/ollama:latest
+FROM ollama/ollama:0.6.9
 
-COPY scripts/entrypoint.sh /entrypoint.sh
+EXPOSE 11434
 RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]

@@ -7,11 +7,19 @@ RUN echo 'PermitRootLogin prohibit-password' >> /etc/ssh/sshd_config && \
     echo 'PasswordAuthentication no' >> /etc/ssh/sshd_config && \
     echo 'PubkeyAuthentication yes' >> /etc/ssh/sshd_config
 
-RUN curl -sL "https://github.com/anomalyco/opencode/releases/download/v1.15.10/opencode-linux-x64.tar.gz" \
+ARG TARGETARCH
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      ARCH="arm64"; \
+    else \
+      ARCH="x64"; \
+    fi && \
+    curl -sL "https://github.com/anomalyco/opencode/releases/download/v1.15.10/opencode-linux-${ARCH}.tar.gz" \
     -o /tmp/opencode.tar.gz && \
     tar xzf /tmp/opencode.tar.gz -C /usr/local/bin/ opencode && \
     chmod +x /usr/local/bin/opencode && \
     rm /tmp/opencode.tar.gz
+
+EXPOSE 22
 
 COPY scripts/entrypoint.sh /opt/opencode/entrypoint.sh
 RUN chmod +x /opt/opencode/entrypoint.sh

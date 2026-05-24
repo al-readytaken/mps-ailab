@@ -38,7 +38,7 @@ Set these in [`./.env`](./.env):
 | `HERMES_DASHBOARD` | No | `0` | Set to `1` to enable the web dashboard |
 | `HERMES_DASHBOARD_HOST` | No | `0.0.0.0` | Dashboard bind address |
 | `HERMES_DASHBOARD_PORT` | No | `9119` | Dashboard listen port |
-| `TELEGRAM_BOT_TOKEN` | No | — | Telegram bot integration token |
+| `TELEGRAM_BOT_TOKEN` | No | — | Telegram bot token — set this in `hermes/.env`; Hermes reads it directly |
 | `TELEGRAM_ALLOWED_USERS` | No | — | Comma-separated Telegram usernames |
 | `HERMES_UID` | No | `1000` | UID for `/home/hermes/.hermes` ownership |
 
@@ -78,15 +78,7 @@ Keys persist across restarts when placed in `/home/hermes/.ssh/` (the `hermes` u
 
 ### Provider Chain
 
-The container is configured with a three-tier fallback:
-
-| Priority | Provider | Endpoint | Hardware |
-|----------|----------|----------|----------|
-| 1 (primary) | OpenRouter | `https://api.openrouter.ai/v1` | Cloud |
-| 2 (fallback) | Ollama | `http://ollama:11434` | AMD GPU (ROCm) |
-| 3 (fallback) | LM Studio | `http://lmstudio:1234/v1` | AMD GPU (Vulkan) |
-
-When OpenRouter is unreachable or rate-limited, requests fall through to local providers.
+See [AGENTS.md](../AGENTS.md#provider-chain) for the full provider chain configuration.
 
 ## Examples
 

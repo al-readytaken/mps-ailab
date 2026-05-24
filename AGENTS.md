@@ -100,7 +100,7 @@ Hermes Agent and Opencode CLI follow this pattern. They have **no HTTP/HTTPS ser
 2. Entrypoint reads a public key from an environment variable (`HERMES_SSH_PUBKEY` / `OPENCODE_SSH_PUBKEY`)
 3. Before starting sshd, it writes the key to `~/.ssh/authorized_keys`
 4. sshd starts with `PubkeyAuthentication yes`, `PasswordAuthentication no`
-5. The key is regenerated every boot — survives volume wipes
+5. The authorized key is injected from the env var on every boot — survives volume wipes. Note: SSH *host keys* are regenerated on new containers (OpenSSH auto-generates them), which may cause `known_hosts` warnings on reconnect.
 
 **Configuration:**
 ```bash

@@ -1,0 +1,6 @@
+.env
+config/
+.git
+*.md
+Dockerfile
+scripts/

@@ -11,6 +11,8 @@ if [ -n "${OPENCODE_SSH_PUBKEY}" ]; then
   chmod 600 /root/.ssh/authorized_keys
 fi
 
-/usr/sbin/sshd
+if [ -x /usr/sbin/sshd ]; then
+  /usr/sbin/sshd
+fi
 
 exec "$@"

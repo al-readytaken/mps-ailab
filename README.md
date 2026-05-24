@@ -198,11 +198,18 @@ docker compose exec ollama sh
 
 ```bash
 # Test all services on their direct ports
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:9119/
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8642/v1/chat/completions
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8880/health
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:11434/api/tags
+for r in http://localhost:9119/ http://localhost:8642/v1/chat/completions http://localhost:8880/health http://localhost:11434/api/tags http://localhost:1234/v1/models; do
+  printf '%-45s  ' "$r"
+  curl -s -w '%{http_code}\n' -o /dev/null "$r"
+done
 ```
+
+Expected results:
+- `http://localhost:9119/` → 200 (dashboard)
+- `http://localhost:8642/v1/chat/completions` → 405 (POST-only)
+- `http://localhost:8880/health` → 200
+- `http://localhost:11434/api/tags` → 200
+- `http://localhost:1234/v1/models` → 200
 
 ## Troubleshooting
 
