@@ -36,23 +36,6 @@ RUN chmod +x /usr/local/bin/chat
 COPY scripts/setup /usr/local/bin/setup
 RUN chmod +x /usr/local/bin/setup
 
-# Patch _PROVIDER_MODELS to add openrouter entry (Python — portable across sed implementations)
-RUN python3 << 'PYEOF'
-import re
-with open('/opt/hermes/hermes_cli/models.py') as f:
-    content = f.read()
-new = '    "openrouter": [\n' \
-      '        "deepseek/deepseek-v4-pro",\n' \
-      '        "x-ai/grok-4.3",\n' \
-      '        "minimax/minimax-m2.7",\n' \
-      '        "google/gemini-3-pro-preview",\n' \
-      '    ],\n'
-content = re.sub(
-    r'(_PROVIDER_MODELS\s*(?::\s*dict\[str,\s*list\[str\]\])?\s*=\s*\{)',
-    r'\1\n' + new,
-    content,
-    count=1,
-)
-with open('/opt/hermes/hermes_cli/models.py', 'w') as f:
-    f.write(content)
-PYEOF
+# patch_providers — adds openrouter entry to _PROVIDER_MODELS dict
+COPY scripts/patch_providers.py /tmp/patch_providers.py
+RUN python3 /tmp/patch_providers.py && rm /tmp/patch_providers.py
