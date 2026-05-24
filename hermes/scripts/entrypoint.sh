@@ -9,6 +9,10 @@ mkdir -p "$CONFIG_DIR"/{sessions,memories,skills,cron,hooks,logs,skins}
 [ -f "$CONFIG_DIR"/config.yaml ] || cp /opt/hermes/config.yaml.default "$CONFIG_DIR"/config.yaml 2>/dev/null || true
 [ -f "$CONFIG_DIR"/SOUL.md ] || cp /opt/hermes/SOUL.md.default "$CONFIG_DIR"/SOUL.md 2>/dev/null || true
 
+# Auto-generate API_SERVER_KEY if not set (required for 0.0.0.0 binding)
+[ -n "$API_SERVER_KEY" ] || API_SERVER_KEY=$(openssl rand -hex 32)
+export API_SERVER_KEY
+
 # Auto-generate .env from host environment variables if missing
 if [ ! -f "$CONFIG_DIR/.env" ] && [ -n "$OPENROUTER_API_KEY" ]; then
   ENV_FILE=/opt/hermes/.env /usr/local/bin/setup
