@@ -3,4 +3,3 @@ config/
 .git
 *.md
 Dockerfile
-scripts/

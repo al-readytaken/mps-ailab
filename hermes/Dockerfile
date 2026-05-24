@@ -37,26 +37,9 @@ COPY scripts/setup /usr/local/bin/setup
 RUN chmod +x /usr/local/bin/setup
 
 # Patch _PROVIDER_MODELS to add openrouter entry (no default model for it)
-RUN python3 -c "
-import ast, pathlib
-p = pathlib.Path('/opt/hermes/hermes_cli/models.py')
-src = p.read_text()
-target = '_PROVIDER_MODELS'
-idx = src.find(target)
-if idx == -1:
-    raise SystemExit(f'{target} not found')
-brace = src.index('{', idx)
-# find the last dict entry before closing brace (insert after it)
-close = src.rfind('}', idx)
-inner = src[brace+1:close]
-insert = '''
-    \"openrouter\": [
-        \"deepseek/deepseek-v4-pro\",
-        \"x-ai/grok-4.3\",
-        \"minimax/minimax-m2.7\",
-        \"google/gemini-3-pro-preview\",
-    ],'''
-# insert before closing brace — after the last complete entry
-new_src = src[:close] + insert + src[close:]
-p.write_text(new_src)
-"
+RUN sed -i '/_PROVIDER_MODELS\s*=\s*{/a\    "openrouter": [\
+        "deepseek/deepseek-v4-pro",\
+        "x-ai/grok-4.3",\
+        "minimax/minimax-m2.7",\
+        "google/gemini-3-pro-preview",\
+    ],' /opt/hermes/hermes_cli/models.py
