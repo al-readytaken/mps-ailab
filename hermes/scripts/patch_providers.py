@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 TARGET = Path("/opt/hermes/hermes_cli/models.py")
-MARKER = "openrouter"
+MARKER = '"openrouter": ['  # Exact key pattern to avoid false positives
 
 MODELS = """\
     "openrouter": [
@@ -39,6 +39,9 @@ def main() -> int:
         content,
         count=1,
     )
+    if content == patched:
+        print(f"ERROR: regex did not match in {TARGET} — no substitution made", file=sys.stderr)
+        return 1
     TARGET.write_text(patched)
     print(f"patch_providers: Added {MARKER} to {TARGET}")
     return 0
