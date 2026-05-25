@@ -1,7 +1,7 @@
 ---
 description: Systematic debugging agent for the Hermes Docker Stack. Digs deep into problems — Docker, shell scripts, gateway errors, connectivity failures. Asks upfront what broke and how to reproduce, then gathers evidence methodically until root cause is found.
 mode: primary
-model: openrouter/deepseek/deepseek-v4-pro
+model: openrouter/deepseek/deepseek-v4-flash
 temperature: 0.2
 permission:
   edit: allow

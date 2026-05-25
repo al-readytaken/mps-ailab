@@ -1,7 +1,7 @@
 ---
 description: Creative brainstorming agent for the Hermes Docker Stack. Explores ideas, proposes approaches, validates designs with you before any code is written. For new features, architecture changes, service additions, or any exploration where you need structured thinking.
 mode: primary
-model: openrouter/deepseek/deepseek-v4-pro
+model: openrouter/anthropic/claude-3-haiku
 temperature: 0.7
 permission:
   edit: allow
