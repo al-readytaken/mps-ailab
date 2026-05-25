@@ -1,6 +1,7 @@
 FROM debian:stable-slim
 
 RUN apt-get update && apt-get install -y openssh-server curl \
+    nodejs npm unzip \
     && rm -rf /var/lib/apt/lists/*
 
 RUN echo 'PermitRootLogin prohibit-password' >> /etc/ssh/sshd_config && \
@@ -18,6 +19,8 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
     tar xzf /tmp/opencode.tar.gz -C /usr/local/bin/ opencode && \
     chmod +x /usr/local/bin/opencode && \
     rm /tmp/opencode.tar.gz
+
+RUN npx -y claude-mem@13.3.0 install --ide opencode
 
 EXPOSE 22
 
