@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libvulkan1 \
     libatomic1 \
     ca-certificates \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -fsSL https://lmstudio.ai/install.sh | bash
