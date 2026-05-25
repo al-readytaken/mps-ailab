@@ -59,5 +59,10 @@ if [ -x /usr/sbin/sshd ]; then
   /usr/sbin/sshd
 fi
 
+# Start claude-mem memory worker in background
+echo "opencode: Starting claude-mem worker..."
+npx --yes claude-mem@13.3.0 start >/tmp/claude-mem.log 2>&1 &
+sleep 1
+
 # Run the command (sleep infinity by default)
 exec "$@"
