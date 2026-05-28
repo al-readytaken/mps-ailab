@@ -21,13 +21,9 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
     rm /tmp/opencode.tar.gz
 
 RUN npx -y claude-mem@13.3.0 install --ide opencode
-
 EXPOSE 22
-
 COPY scripts/entrypoint.sh /opt/opencode/entrypoint.sh
 RUN chmod +x /opt/opencode/entrypoint.sh
-
 COPY scripts/chat /usr/local/bin/chat
 RUN chmod +x /usr/local/bin/chat
-
 ENTRYPOINT ["/opt/opencode/entrypoint.sh"]
