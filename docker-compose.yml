@@ -55,7 +55,12 @@ services:
     env_file:
       - ./opencode/.env
 
+    environment:
+      - OPENCODE_UID=1000
+      - OPENCODE_GID=1000
+
     volumes:
+      - ./opencode/config:/root/.config/opencode
       - ./projects:/opt/projects
 
     networks:

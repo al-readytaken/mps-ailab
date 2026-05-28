@@ -26,13 +26,24 @@ A minimal Debian container running the [Opencode CLI](https://opencode.ai) — a
 
 ## Configuration
 
-Set this in [`./.env`](./.env):
+Set these in [`./.env`](./.env):
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `OPENCODE_SSH_PUBKEY` | No | — | Public SSH key for key-only auth |
+| `OPENCODE_UID` | No | `1000` | Host UID for config volume ownership |
+| `OPENCODE_GID` | No | `1000` | Host GID for config volume ownership |
+| `OPENROUTER_API_KEY` | No | — | OpenRouter API key (auto-detected, injected into `auth.json` on startup) |
 
-Without this variable, sshd still starts but root login has no authorized keys.
+Set `OPENCODE_UID` and `OPENCODE_GID` to match your host user's IDs so you
+can edit config files directly from the host. Run `id -u` and `id -g` to
+find your values.
+
+The `OPENROUTER_API_KEY` is written to `~/.local/share/opencode/auth.json` by
+the entrypoint on every startup. Opencode reads this file to authenticate with
+OpenRouter — no interactive login needed.
+
+Without the SSH key variable, sshd still starts but root login has no authorized keys.
 
 ## SSH Access
 
@@ -76,9 +87,34 @@ ssh -p 9999 root@localhost "opencode 'refactor this'"
 
 | Volume | Mount | Contents |
 |--------|-------|----------|
+| `./opencode/config` (bind) | `/root/.config/opencode` | Opencode configuration files — survives restarts, editable from host |
 | `./projects` (bind) | `/opt/projects` | Shared project files (same volume as Hermes) |
 
-Files written inside the container are instantly visible in the host's `./projects/` directory and vice versa.
+Files written inside the container are instantly visible on the host and vice versa.
+
+### Configuration Persistence
+
+The `./opencode/config` directory is mounted into the container at
+`/root/.config/opencode`. This means:
+
+- **Survives restarts**: Config changes persist through `docker compose restart`
+  and `docker compose down && docker compose up -d`
+- **Host-editable**: Modify config files directly from the host with any editor
+- **UID/GID mapping**: On startup, the entrypoint `chown`s the directory to
+  `OPENCODE_UID:OPENCODE_GID`, ensuring your host user can read and write files
+  without permission issues
+
+To verify the UID/GID mapping is correct:
+
+```bash
+# Check your host user IDs
+id -u    # → 1000 (typically)
+id -g    # → 1000 (typically)
+
+# Set in .env to match
+OPENCODE_UID=1000
+OPENCODE_GID=1000
+```
 
 ## Troubleshooting
 
