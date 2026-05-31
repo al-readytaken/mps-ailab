@@ -1,161 +1,122 @@
 services:
-  # ── Hermes AI agent ──────────────────────────────────────────
-  hermes:
-    build: ./hermes
-    container_name: hermes
-    restart: unless-stopped
-    command: gateway run
-
+# -- KOKORO -------------------------------------------------------------------
+  kokoro:
+    container_name: kokoro
+    build:
+      context: .
+      dockerfile: ${KOKORO_DIR}/Dockerfile
+    user: root
     ports:
-      - "8642:8642"   # gateway API
-      - "9119:9119"   # dashboard
-      - "8888:22"     # SSH access
-
-    env_file:
-      - ./hermes/.env
-
-    environment:
-      - HERMES_UID=1000
-      - HERMES_GID=1000
-      - HERMES_HOME=/home/hermes/.hermes
-      - API_SERVER_ENABLED=true
-      - API_SERVER_HOST=0.0.0.0
-
+      - "${KOKORO_PORT}:8880"
+      - "${KOKORO_PORT_SSH}:22"
     volumes:
-      - ./hermes/config:/home/hermes/.hermes
-      - ./projects:/opt/projects
-      - ./hermes/.env:/opt/hermes/.env:ro
-
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-          cpus: "2.0"
-
+      - ${PROJECTS_DIR}:/opt/projects
+      - ${COMMON_DIR}/ssh/sshd_config:/etc/ssh/sshd_config:ro
+      - ${COMMON_DIR}/ssh/authorized_keys:/tmp/authorized_keys:ro
+      - ${KOKORO_DIR}/scripts/entrypoint.bash:/entrypoint.bash:ro
+    env_file: ${KOKORO_DIR}/.env
+    entrypoint: ["/entrypoint.bash"]
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8642/v1/chat/completions -o /dev/null -w '%{http_code}' || true"]
+      test: ["CMD", "curl", "-f", "http://localhost:8880/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
-
-    networks:
-      - backend
-
-  # ── Opencode CLI ──────────────────────────────────────────────
-  opencode:
-    build: ./opencode
-    container_name: opencode
-    restart: unless-stopped
-    command: sleep infinity
-
-    ports:
-      - "9999:22"     # SSH access
-
-    env_file:
-      - ./opencode/.env
-
-    environment:
-      - OPENCODE_UID=1000
-      - OPENCODE_GID=1000
-
-    volumes:
-      - ./opencode/config:/root/.config/opencode
-      - ./projects:/opt/projects
-
-    networks:
-      - backend
-
-  # ── Ollama LLM server (AMD GPU via ROCm) ─────────────────────
+# -- OLLAMA -------------------------------------------------------------------
   ollama:
-    build: ./ollama
     container_name: ollama
-    restart: unless-stopped
-
-    environment:
-      - OLLAMA_MODELS_FILE=/opt/ollama-models.txt
-
+    build:
+      context: .
+      dockerfile: ${OLLAMA_DIR}/Dockerfile
     ports:
-      - "11434:11434"
-
+      - "${OLLAMA_PORT}:11434"
+      - "${OLLAMA_PORT_SSH}:22"
+    volumes:
+      - ${MOUNTS_DIR}/ollama/.ollama:/root/.ollama
+      - ${OLLAMA_DIR}/scripts/entrypoint.bash:/entrypoint.bash:ro
+      - ${OLLAMA_DIR}/models.txt:/models.txt:ro
+      - ${PROJECTS_DIR}:/opt/projects
+      - ${COMMON_DIR}/ssh/sshd_config:/etc/ssh/sshd_config:ro
+      - ${COMMON_DIR}/ssh/authorized_keys:/tmp/authorized_keys:ro
     devices:
       - /dev/kfd
       - /dev/dri
-
+    env_file: ${OLLAMA_DIR}/.env
+    entrypoint: ["/entrypoint.bash"]
     group_add:
-      - video
-
-    volumes:
-      - ollama_data:/root/.ollama
-      - ./ollama/ollama-models.txt:/opt/ollama-models.txt:ro
-
+      - "44"
+      - "992"
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      test: ["CMD", "ollama", "list"]
+      start_period: 120s
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 20s
-
-    networks:
-      - backend
-
-  # ── Kokoro TTS engine ───────────────────────────────────────
-  kokoro:
-    build: ./kokoro
-    container_name: kokoro
-    restart: unless-stopped
-
+# -- OPENCODE -------------------------------------------------------------------
+  opencode:
+    container_name: opencode
+    build:
+      context: .
+      dockerfile: ${OPENCODE_DIR}/Dockerfile
     ports:
-      - "8880:8880"
-
+      - "${OPENCODE_PORT_SSH}:22"
+      - "${OPENCODE_PORT_WEB}:4096"
     volumes:
-      - kokoro_data:/kokoro/voices
-
+      - ${MOUNTS_DIR}/opencode/opencode:/root/.config/opencode
+      - ${MOUNTS_DIR}/opencode/.opencode:/root/.opencode
+      - ${PROJECTS_DIR}:/opt/projects
+      - ${COMMON_DIR}/ssh/sshd_config:/etc/ssh/sshd_config:ro
+      - ${COMMON_DIR}/ssh/authorized_keys:/tmp/authorized_keys:ro
+      - ${OPENCODE_DIR}/scripts/entrypoint.bash:/entrypoint.bash:ro
+    entrypoint: ["/entrypoint.bash"]
+    env_file: ${OPENCODE_DIR}/.env
+    restart: unless-stopped
+# -- OPEN-WEBUI -------------------------------------------------------------------
+  openwebui:
+    container_name: openwebui
+    build:
+      context: .
+      dockerfile: ${OPENWEBUI_DIR}/Dockerfile
+    ports:
+      - "${OPENWEBUI_PORT}:8080"
+      - "${OPENWEBUI_PORT_SSH}:22"
+    volumes:
+      - ${MOUNTS_DIR}/openwebui/data:/app/backend/data
+      - ${OPENWEBUI_DIR}/scripts/entrypoint.bash:/entrypoint.bash:ro
+      - ${PROJECTS_DIR}:/opt/projects
+      - ${COMMON_DIR}/ssh/sshd_config:/etc/ssh/sshd_config:ro
+      - ${COMMON_DIR}/ssh/authorized_keys:/tmp/authorized_keys:ro
+    env_file: ${OPENWEBUI_DIR}/.env
+    entrypoint: ["/entrypoint.bash"]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8880/health || exit 1"]
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
-
-    networks:
-      - backend
-
-  # ── LM Studio (AMD GPU via Vulkan) ──────────────────────────
-  lmstudio:
-    build: ./lmstudio
-    container_name: lmstudio
-    restart: unless-stopped
-
+      start_period: 45s
+# -- HERMES -------------------------------------------------------------------
+  hermes:
+    container_name: hermes
+    build:
+      context: .
+      dockerfile: ${HERMES_DIR}/Dockerfile
     ports:
-      - "1234:1234"
-
+      - "${HERMES_PORT_SSH}:22"
+      - "${HERMES_PORT_WEB}:9119"
+    volumes:
+      - ${MOUNTS_DIR}/hermes/.hermes:/root/.hermes
+      - ${PROJECTS_DIR}:/opt/projects
+      - ${COMMON_DIR}/ssh/sshd_config:/etc/ssh/sshd_config:ro
+      - ${COMMON_DIR}/ssh/authorized_keys:/tmp/authorized_keys:ro
+      - ${HERMES_DIR}/scripts/entrypoint.bash:/entrypoint.bash:ro
+    entrypoint: ["/entrypoint.bash"]
+    env_file: ${HERMES_DIR}/.env
     environment:
-      - LMSTUDIO_MODEL=llama-3.2-1b-instruct
-      - LMSTUDIO_PRELOAD=false
-
-    volumes:
-      - lmstudio_data:/root/.cache/lm-studio
-      - /dev/dri:/dev/dri:ro
-
-    group_add:
-      - video
-
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:1234/v1/models || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-    networks:
-      - backend
-
-volumes:
-  ollama_data:
-  kokoro_data:
-  lmstudio_data:
-
-networks:
-  backend:
-    driver: bridge
+      - HERMES_HOSTNAME_WEB=${HERMES_HOSTNAME_WEB}
+      - HERMES_PORT_WEB=${HERMES_PORT_WEB}
+    restart: unless-stopped

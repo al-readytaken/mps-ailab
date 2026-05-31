@@ -1,3 +1,0 @@
-# Shell scripts in this stack use bash (entrypoints, setup scripts).
-# Disable rules that don't apply to container bootstrap scripts.
-external-sources=false

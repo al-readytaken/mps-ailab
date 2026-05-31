@@ -1,6 +1,6 @@
-hermes/.env
-hermes/config/
-opencode/.env
-opencode/config/
-lmstudio/.env
+# Environment files (keep .env.example as templates)
+.env
+
+# Docker bind mount volumes (host-persistent runtime data)
+mounts/
 projects/
