@@ -13,7 +13,22 @@ AI coding agent with web UI and SSH access.
 
 ### Access Web Interface
 
-Open in browser: `http://localhost:4096`
+Open in browser: [http://localhost:4096](http://localhost:4096)
+
+### SSH Usage
+
+Connect via SSH and run opencode directly:
+
+```bash
+# Connect to the container
+ssh -p 22004 root@localhost
+
+# Run opencode interactively
+opencode
+
+# Or run a single prompt
+opencode "explain this codebase"
+```
 
 ### Features
 

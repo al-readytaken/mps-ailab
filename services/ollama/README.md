@@ -37,6 +37,10 @@ docker compose exec ollama ollama list
 docker compose exec ollama ollama pull llama3.2
 ```
 
+### API Access
+
+Access the Ollama API at: [http://localhost:11434](http://localhost:11434)
+
 ## Configuration
 
 ### Models

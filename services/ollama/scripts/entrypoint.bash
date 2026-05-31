@@ -47,5 +47,8 @@ if [ -f /models.txt ]; then
   done </models.txt
 fi
 
+# Run instance
+/bin/ollama run "qwen3.5:9b" &
+
 # Bring server to foreground
 wait $SERVER_PID

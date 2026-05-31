@@ -3,7 +3,7 @@
 set -e
 
 INTERVAL=${1:-10}
-MODEL=${2:-"gemma4:e2b"}
+MODEL=${2:-"qwen3.5:9b"}
 
 echo "Monitoring Ollama throughput every ${INTERVAL}s (model: ${MODEL})"
 echo "Press Ctrl+C to stop"

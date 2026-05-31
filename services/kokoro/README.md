@@ -28,6 +28,10 @@ Check available voices with:
 curl http://localhost:8880/v1/voices
 ```
 
+### Web Interface
+
+Access the API documentation at: [http://localhost:8880](http://localhost:8880)
+
 ## Configuration
 
 ### Environment Variables

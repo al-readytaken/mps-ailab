@@ -72,6 +72,12 @@ services:
     entrypoint: ["/entrypoint.bash"]
     env_file: ${OPENCODE_DIR}/.env
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4096/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
 # -- OPEN-WEBUI -------------------------------------------------------------------
   openwebui:
     container_name: openwebui
@@ -120,3 +126,9 @@ services:
       - HERMES_HOSTNAME_WEB=${HERMES_HOSTNAME_WEB}
       - HERMES_PORT_WEB=${HERMES_PORT_WEB}
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9119/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s

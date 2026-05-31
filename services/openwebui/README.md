@@ -13,7 +13,7 @@ Web-based chat interface for Ollama.
 
 ### Access Web Interface
 
-Open in browser: `http://localhost:3001`
+Open in browser: [http://localhost:3001](http://localhost:3001)
 
 ### Features
 

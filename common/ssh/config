@@ -1,0 +1,36 @@
+Host ailab-kokoro
+    HostName localhost
+    User root
+    Port 22000
+    IdentityFile ~/.ssh/id_rsa
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+Host ailab-ollama
+    HostName localhost
+    User root
+    Port 22001
+    IdentityFile ~/.ssh/id_rsa
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+Host ailab-openwebui
+    HostName localhost
+    User root
+    Port 22002
+    IdentityFile ~/.ssh/id_rsa
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+Host ailab-hermes
+    HostName localhost
+    User root
+    Port 22003
+    IdentityFile ~/.ssh/id_rsa
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+Host ailab-opencode
+    HostName localhost
+    User root
+    Port 22004
+    IdentityFile ~/.ssh/id_rsa
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+

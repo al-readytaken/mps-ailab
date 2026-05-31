@@ -12,6 +12,16 @@ Docker Compose stack for local LLM inference with TTS and AI coding agent suppor
 | **hermes** | Hermes AI agent (web UI + SSH) | 9119 | 22003 | [README](services/hermes/README.md) |
 | **opencode** | OpenCode AI coding agent (web UI + SSH) | 4096 | 22004 | [README](services/opencode/README.md) |
 
+## Web Interface URLs
+
+All services provide web interfaces accessible at:
+
+- **Kokoro TTS**: [http://localhost:8880](http://localhost:8880)
+- **Ollama API**: [http://localhost:11434](http://localhost:11434)
+- **Open WebUI**: [http://localhost:3001](http://localhost:3001)
+- **Hermes Agent**: [http://localhost:9119](http://localhost:9119)
+- **OpenCode**: [http://localhost:4096](http://localhost:4096)
+
 ## Prerequisites
 
 - Docker & Docker Compose v2
@@ -54,7 +64,7 @@ OPENCODE_PORT_SSH=22004
 
 ## SSH Access
 
-All services run SSH daemon on port 22 inside the container, mapped to unique host ports. Add your public key to `common/ssh/authorized_keys`:
+All services run SSH daemon on port 22 inside the container, mapped to unique host ports. The SSH configuration is shared via `common/ssh/sshd_config`. Add your public key to `common/ssh/authorized_keys`:
 
 ```bash
 ssh -p 22000 root@localhost  # kokoro

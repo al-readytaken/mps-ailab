@@ -1,10 +1,10 @@
 # Models to automatically pull on container start
 # One model per line. Lines starting with # are ignored.
 
-qwen2.5-coder:7b
-llama3.2:3b
+#qwen2.5-coder:7b
+#llama3.2:3b
 gemma4:e2b
-tinyllama:latest
+#tinyllama:latest
 # qwen3-coder-next:q4_K_M
 qwen3.5:9b
-sssonusharma1999/ankit-coder:latest
+#sssonusharma1999/ankit-coder:latest

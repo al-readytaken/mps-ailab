@@ -13,7 +13,19 @@ AI agent with web UI, memory, and skill system.
 
 ### Access Web Interface
 
-Open in browser: `http://localhost:9119`
+Open in browser: [http://localhost:9119](http://localhost:9119)
+
+### First-time Setup
+
+On first usage, Hermes needs to be initialized with two commands:
+
+```bash
+# Initialize Hermes
+hermes setup
+
+# Setup gateway for external connections
+hermes gateway setup
+```
 
 ### Features
 
